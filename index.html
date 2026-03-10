@@ -6,19 +6,62 @@
     <style>
         body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
         h2 { text-align: center; color: #333; }
-        .map-container { position: relative; width: 100%; aspect-ratio: 16 / 9; background-color: #ffffff; border: 3px solid #333; background-image: url('lab.png'); background-size: contain; background-repeat: no-repeat; background-position: center; }
-        .device { position: absolute; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.2); z-index: 5; }
+        
+        .map-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background-color: #ffffff;
+            border: 3px solid #333;
+            background-image: url('lab.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .device {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            z-index: 5;
+        }
+
         .status-busy { background-color: #ff4d4f; animation: pulse 2s infinite; }      
         .status-maintenance { background-color: #faad14; animation: pulse 2s infinite; } 
         .status-repair { background-color: #ff7a45; animation: pulse 2s infinite; }      
         .status-available { background-color: #52c41a; }                               
-        .info-box { display: none; position: absolute; top: 25px; left: 20px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 5px; width: 160px; font-size: 13px; z-index: 100; }
+
+        .info-box {
+            display: none;
+            position: absolute;
+            top: 25px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            width: 160px;
+            font-size: 13px;
+            z-index: 100;
+        }
+
         .device:hover .info-box { display: block; }
-        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2); } 70% { transform: scale(1.2); box-shadow: 0 0 0 10px rgba(0, 0, 0, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); } }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2); }
+            70% { transform: scale(1.2); box-shadow: 0 0 0 10px rgba(0, 0, 0, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+        }
     </style>
 </head>
 <body>
+
     <h2>東科實驗室設備借用系統</h2>
+
     <div style="display: flex; gap: 20px; max-width: 1400px; margin: auto; align-items: flex-start;">
         <div style="flex: 2.5;">
             <div class="map-container">
@@ -33,158 +76,311 @@
                 <div class="device status-available" style="left: 53%; top: 74%;"><div class="info-box"><b>恆溫恆濕箱(左)</b><br>狀態：載入中...</div></div>
             </div>
         </div>
+
         <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 320px;">
             <div style="background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 20px; border-top: 5px solid #ff4d4f;">
                 <h3 style="margin-top:0; color: #ff4d4f;">🔴 進行中設備</h3>
-                <div id="activeList" style="font-size: 14px; color: #555;">目前尚無使用中設備</div>
+                <div id="activeList" style="font-size: 14px; color: #555; line-height: 1.6;">目前尚無使用中設備</div>
             </div>
             <div style="background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 20px; border-top: 5px solid #1890ff;">
                 <h3 style="margin-top:0; color: #1890ff;">📅 即將到來</h3>
                 <div id="upcomingList" style="font-size: 14px; color: #555;">暫無預約紀錄</div>
             </div>
-            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 20px; border-top: 5px solid #8c8c8c;">
-               <h3 style="margin-top:0; color: #8c8c8c;">✅ 已使用完</h3>
-               <div id="historyList" style="font-size: 14px; color: #555;">暫無結束紀錄</div>
+            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 20px; border-top: 5px solid #8c8c8c; margin-top: 20px;">
+               <h3 style="margin-top:0; color: #8c8c8c;">✅ 已使用完 (本日紀錄)</h3>
+               <div id="historyList" style="font-size: 14px; color: #555; line-height: 1.6;">暫無結束紀錄</div>
             </div>
         </div>
     </div>
+
     <div id="bookingModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center;">
-        <div id="modalContainer" style="background:white; padding:25px; border-radius:12px; width:350px;"></div>
+        <div id="modalContainer" style="background:white; padding:25px; border-radius:12px; width:350px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        </div>
     </div>
 
 <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwRd6oDy12oJsQHigqykpn1g1QFbBllXQP77PL--vkSOkwC5zGXAZxsjHUm9ub7mqcL/exec"; 
+    // 請務必確認此網址結尾是 /exec
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwRd6oDy12oJsQHigqykpn1g1QFbBllXQP77PL--vkSOkwC5zGXAZxsjHUm9ub7mqcL/exec";
 
-    let currentDevName = "", editingIndex = -1, allReservations = [], historyData = [];
-    const modal = document.getElementById('bookingModal'), modalContainer = document.getElementById('modalContainer');
+    let currentDevName = ""; 
+    let editingIndex = -1;   
+    let allReservations = []; 
+    let historyData = []; 
+    const modal = document.getElementById('bookingModal');
+    const modalContainer = document.getElementById('modalContainer');
 
-    function getTodayStr() { return new Date().toISOString().split('T')[0]; }
-    function formatDate(dateStr) { const d = new Date(dateStr); return isNaN(d.getTime()) ? dateStr : d.toISOString().split('T')[0]; }
+    function getTodayStr() {
+        return new Date().toISOString().split('T')[0];
+    }
 
-    window.onload = async function() { await fetchDataFromCloud(); updateBanners(); };
+    window.onload = async function() {
+        await fetchDataFromCloud();
+        updateBanners();
+    };
 
     async function fetchDataFromCloud() {
         try {
             document.body.style.cursor = 'wait';
-            const res = await fetch(GAS_URL);
-            const data = await res.json();
-            allReservations = data.map(item => ({ deviceName: item["設備名稱"], type: item["使用類別"], user: item["負責人"], project: item["專案名稱"], start: formatDate(item["開始日期"]), end: formatDate(item["結束日期"]) }));
-        } catch (e) { console.error(e); } finally { document.body.style.cursor = 'default'; }
+            // 使用 GET 抓取資料
+            const response = await fetch(GAS_URL);
+            if (!response.ok) throw new Error("HTTP error " + response.status);
+            
+            const data = await response.json();
+            allReservations = data.map(item => ({
+                deviceName: item["設備名稱"],
+                type: item["使用類別"],
+                user: item["負責人"],
+                project: item["專案名稱"],
+                start: formatDate(item["開始日期"]),
+                end: formatDate(item["結束日期"])
+            }));
+            document.body.style.cursor = 'default';
+        } catch (error) {
+            console.error("Fetch error:", error);
+            alert("雲端連線失敗，請確認 GAS 部署為『任何人』且權限已開啟。");
+            document.body.style.cursor = 'default';
+        }
+    }
+
+    function formatDate(dateStr) {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toISOString().split('T')[0];
+    }
+
+    document.querySelectorAll('.device').forEach(dev => {
+        dev.addEventListener('click', function() {
+            const deviceName = this.querySelector('.info-box b').innerText;
+            const today = getTodayStr();
+            const activeIdx = allReservations.findIndex(r => r.deviceName === deviceName && r.start <= today && r.end >= today);
+            
+            if (activeIdx > -1) {
+                openReturnModal(activeIdx);
+            } else {
+                openBookingModal(deviceName);
+            }
+        });
+    });
+
+    function openReturnModal(idx) {
+        const res = allReservations[idx];
+        editingIndex = idx;
+        modalContainer.innerHTML = `
+            <h3 style="margin-top:0; color:#ff4d4f;">設備歸還確認</h3>
+            <div style="background:#fff1f0; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #ffa39e;">
+                <p><b>設備：</b>${res.deviceName}</p>
+                <p><b>類別：</b>${res.type}</p>
+                <p><b>人員：</b>${res.user}</p>
+                <p><b>期間：</b>${res.start} ~ ${res.end}</p>
+            </div>
+            <div style="display:flex; justify-content:space-between; gap: 8px;">
+                <button onclick="closeModal()" style="padding:10px 15px; cursor:pointer; background:#eee; border:none; border-radius:4px;">取消</button>
+                <button onclick="confirmReturn()" style="flex:1; background:#ff4d4f; color:white; border:none; padding:10px 15px; border-radius:4px; cursor:pointer; font-weight:bold;">立即歸還</button>
+            </div>
+        `;
+        modal.style.display = 'flex';
     }
 
     async function confirmReturn() {
         const res = allReservations[editingIndex];
-        const historyItem = { deviceName: res.deviceName, type: res.type, user: res.user, project: res.project, start: res.start, end: res.end, finishTime: new Date().toLocaleString() };
-        
-        historyData.push(historyItem); 
-        allReservations.splice(editingIndex, 1); 
-        
-        await syncToCloud("歸還成功，資料已永久存入雲端紀錄。", historyItem);
+        const finishTime = new Date().toLocaleString();
+
+        const historyItem = {
+            deviceName: res.deviceName,
+            type: res.type,
+            user: res.user,
+            project: res.project,
+            start: res.start,
+            end: res.end,
+            finishTime: finishTime
+        };
+
+        historyData.push(historyItem);
+        allReservations.splice(editingIndex, 1);
+
+        await syncToCloud("歸還成功，資料已存入雲端歷史工作表。", historyItem);
         closeModal();
-        // 建議歸還後重新抓取一次雲端，確保同步
-        await fetchDataFromCloud();
         updateBanners();
     }
 
-    async function syncToCloud(msg, historyItem = null) {
-        document.body.style.cursor = 'wait';
-        try {
-            const payload = { allData: allReservations };
-            if (historyItem) payload.historyItem = historyItem;
-            
-            await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
-            alert(msg);
-        } catch (e) { alert("同步失敗，請檢查網路。"); } finally { document.body.style.cursor = 'default'; }
-    }
+    function openBookingModal(deviceName, editIdx = -1) {
+        currentDevName = deviceName;
+        editingIndex = editIdx;
+        const res = editIdx > -1 ? allReservations[editIdx] : null;
+        const today = getTodayStr();
 
-    async function submitBooking() {
-        const type = document.getElementById('usageType').value, user = document.getElementById('userName').value, project = document.getElementById('projectName').value, start = document.getElementById('startDate').value, end = document.getElementById('endDate').value;
-        
-        if (!user || !start || !end) { alert("請填寫完整"); return; }
-        if (end < start) { alert("❌ 結束日期不能早於開始日期"); return; }
-
-        const hasOverlap = allReservations.some((res, idx) => editingIndex !== idx && res.deviceName === currentDevName && (start <= res.end && end >= res.start));
-        if (hasOverlap) { alert("❌ 時段重疊，該設備已被預約。"); return; }
-
-        const newRes = { deviceName: currentDevName, user, project: project || "N/A", start, end, type };
-        if (editingIndex > -1) allReservations[editingIndex] = newRes;
-        else allReservations.push(newRes);
-
-        await syncToCloud("預約成功！");
-        closeModal();
-        await fetchDataFromCloud(); // 重新整理資料
-        updateBanners();
+        modalContainer.innerHTML = `
+            <h3 style="margin-top:0; color: #333;">設備管理：${deviceName}</h3>
+            <div id="resListInsideModal" style="background:#f0f7ff; padding:12px; border-radius:8px; margin-bottom:15px; font-size:13px; border: 1px solid #bae7ff;">載入中...</div>
+            <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+            <h4 style="margin:10px 0; color: #666;">➕ ${editIdx > -1 ? '編輯' : '新增'}紀錄</h4>
+            <label>1. 使用類別：</label><br>
+            <select id="usageType" onchange="toggleProjectField()" style="width:100%; padding:8px; margin:5px 0 10px 0; border:1px solid #ddd; border-radius:4px;">
+                <option value="借用" ${res?.type === '借用' ? 'selected' : ''}>專案借用</option>
+                <option value="保養" ${res?.type === '保養' ? 'selected' : ''}>設備保養</option>
+                <option value="維修" ${res?.type === '維修' ? 'selected' : ''}>故障維修</option>
+            </select><br>
+            <label>2. 負責人：</label><br>
+            <input type="text" id="userName" value="${res?.user || ''}" style="width:100%; padding:8px; margin:5px 0 10px 0; border:1px solid #ddd; border-radius:4px;"><br>
+            <div id="projectDiv" style="display: ${res?.type === '保養' || res?.type === '維修' ? 'none' : 'block'}">
+                <label>3. 專案名稱：</label><br>
+                <input type="text" id="projectName" value="${res?.project || ''}" style="width:100%; padding:8px; margin:5px 0 10px 0; border:1px solid #ddd; border-radius:4px;"><br>
+            </div>
+            <label>4. 期間：</label><br>
+            <div style="display:flex; gap:5px; margin:5px 0 20px 0;">
+                <input type="date" id="startDate" value="${res?.start || today}" style="width:45%; padding:5px; border:1px solid #ddd;"> 至 
+                <input type="date" id="endDate" value="${res?.end || ''}" style="width:45%; padding:5px; border:1px solid #ddd;">
+            </div>
+            <div style="display:flex; justify-content:space-between; gap: 8px;">
+                <button onclick="closeModal()" style="padding:10px 15px; cursor:pointer; background:#eee; border:none; border-radius:4px;">取消</button>
+                ${editIdx > -1 ? `<button onclick="deleteCurrentEdit()" style="background:#ff4d4f; color:white; border:none; padding:10px 15px; border-radius:4px; cursor:pointer;">刪除此筆</button>` : ''}
+                <button onclick="submitBooking()" style="flex:1; background:#52c41a; color:white; border:none; padding:10px 15px; border-radius:4px; cursor:pointer; font-weight:bold;">儲存</button>
+            </div>
+        `;
+        renderModalResList();
+        modal.style.display = 'flex';
     }
 
     function toggleProjectField() {
         const type = document.getElementById('usageType').value;
-        const projectDiv = document.getElementById('projectDiv');
-        if (projectDiv) {
-            projectDiv.style.display = (type === "保養" || type === "維修") ? "none" : "block";
+        document.getElementById('projectDiv').style.display = (type === "保養" || type === "維修") ? "none" : "block";
+    }
+
+    function renderModalResList() {
+        const listDiv = document.getElementById('resListInsideModal');
+        const filtered = allReservations.map((res, index) => ({...res, originalIndex: index}))
+                                      .filter(res => res.deviceName === currentDevName);
+        if (filtered.length === 0) {
+            listDiv.innerHTML = "<strong>📅 預約清單：</strong><br>暫無紀錄";
+            return;
+        }
+        let html = '<strong>📅 預約清單：</strong><ul style="padding-left:15px; margin:5px 0;">';
+        filtered.forEach(res => {
+            html += `<li>${res.start} ~ ${res.end} [${res.type}] <a href="#" onclick="openBookingModal('${res.deviceName}', ${res.originalIndex})" style="color:#1890ff; font-size:12px;">編輯</a></li>`;
+        });
+        listDiv.innerHTML = html + '</ul>';
+    }
+
+    function closeModal() { modal.style.display = 'none'; }
+
+    async function syncToCloud(msg, historyItem = null) {
+        document.body.style.cursor = 'wait';
+        try {
+            const body = { allData: allReservations };
+            if (historyItem) body.historyItem = historyItem;
+
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify(body)
+            });
+            
+            // 如果 GAS 正常回傳，會顯示成功訊息
+            alert(msg);
+        } catch (error) { 
+            console.error("Sync error:", error);
+            alert("同步失敗，請確認網路連線或 GAS 權限。"); 
+        }
+        document.body.style.cursor = 'default';
+    }
+
+    async function submitBooking() {
+        const type = document.getElementById('usageType').value;
+        const user = document.getElementById('userName').value;
+        const project = document.getElementById('projectName').value;
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+
+        if (user && start && end) {
+            const hasOverlap = allReservations.some((res, index) => {
+                if (editingIndex === index) return false;
+                if (res.deviceName !== currentDevName) return false;
+                return (start <= res.end && end >= res.start);
+            });
+
+            if (hasOverlap) {
+                alert("❌ 預約失敗：該時段設備已有其他預約。");
+                return;
+            }
+
+            const newRes = { deviceName: currentDevName, user, project: project || "N/A", start, end, type };
+            if (editingIndex > -1) allReservations[editingIndex] = newRes;
+            else allReservations.push(newRes);
+            
+            await syncToCloud("預約成功！");
+            closeModal();
+            updateBanners();
+        } else { alert('請填寫完整內容'); }
+    }
+
+    async function deleteCurrentEdit() {
+        if (confirm("確定要刪除這筆紀錄嗎？")) {
+            allReservations.splice(editingIndex, 1);
+            await syncToCloud("刪除成功");
+            closeModal();
+            updateBanners();
         }
     }
 
     function updateBanners() {
         const today = getTodayStr();
-        let activeHtml = '', upcomingHtml = '';
-        const typeColors = { "借用": "#ff4d4f", "保養": "#faad14", "維修": "#ff7a45" };
+        let activeHtml = '';
+        let upcomingHtml = '';
 
         document.querySelectorAll('.device').forEach(dev => {
             const name = dev.querySelector('.info-box b').innerText;
-            dev.className = 'device status-available';
+            dev.className = 'device status-available'; 
             dev.querySelector('.info-box').innerHTML = `<b>${name}</b><br>狀態：空閒中 🟢`;
         });
 
-        allReservations.sort((a,b) => a.start.localeCompare(b.start)).forEach((res, index) => {
-            const tagColor = typeColors[res.type] || "#1890ff";
-            const itemHtml = `<li style="margin-bottom:10px; border-bottom: 1px solid #eee; padding-bottom: 5px; cursor: pointer;" onclick="${res.start <= today && res.end >= today ? `openReturnModal(${index})` : `openBookingModal('${res.deviceName}', ${index})`}">
-                <span style="background:${tagColor}; color:white; padding:2px 5px; border-radius:3px; font-size:10px; margin-right:5px;">${res.type}</span>
-                <strong>${res.deviceName}</strong><br><span style="font-size:12px; color:#666;">👤 ${res.user}</span><br><span style="font-size:11px; color:#999;">📅 ${res.start} ~ ${res.end}</span>
-            </li>`;
+        allReservations.sort((a, b) => a.start.localeCompare(b.start));
+        const typeColors = { "借用": "#ff4d4f", "保養": "#faad14", "維修": "#ff7a45" };
+        const typeClasses = { "借用": "status-busy", "保養": "status-maintenance", "維修": "status-repair" };
 
+        allReservations.forEach((res, index) => {
             if (res.start <= today && res.end >= today) {
-                activeHtml += itemHtml;
+                activeHtml += `<li onclick="openReturnModal(${index})" style="margin-bottom:10px; border-bottom: 1px solid #eee; padding-bottom: 5px; cursor: pointer;">
+                    <span style="background:${typeColors[res.type]}; color:white; padding:2px 5px; border-radius:3px; font-size:10px; margin-right:5px;">${res.type}</span>
+                    <strong>${res.deviceName}</strong> <span style="color:#ff4d4f; font-size:11px;">[點擊歸還]</span><br>
+                    <span style="font-size:12px; color:#666;">👤 ${res.user}</span><br>
+                    <span style="font-size:11px; color:#999;">📅 ${res.start} ~ ${res.end}</span>
+                </li>`;
                 const devNode = Array.from(document.querySelectorAll('.device')).find(d => d.querySelector('.info-box b').innerText === res.deviceName);
                 if (devNode) {
-                    devNode.className = `device ${res.type==='借用'?'status-busy':res.type==='保養'?'status-maintenance':'status-repair'}`;
-                    devNode.querySelector('.info-box').innerHTML = `<b>${res.deviceName}</b><br>類別：${res.type}<br>人員：${res.user}<br>${res.start}~${res.end}`;
+                    devNode.className = `device ${typeClasses[res.type]}`;
+                    devNode.querySelector('.info-box').innerHTML = `<b>${res.deviceName}</b><br>類別：${res.type}<br>人員：${res.user}<br>期間：${res.start}~${res.end}`;
                 }
-            } else if (res.start > today) upcomingHtml += itemHtml;
+            } else if (res.start > today) {
+                const tagColor = typeColors[res.type] || "#1890ff";
+                upcomingHtml += `<li onclick="openBookingModal('${res.deviceName}', ${index})" style="margin-bottom:10px; border-bottom: 1px solid #eee; padding-bottom: 5px; cursor: pointer;">
+                    <span style="background:${tagColor}; color:white; padding:2px 5px; border-radius:3px; font-size:10px; margin-right:5px;">${res.type}</span>
+                    <strong>${res.deviceName}</strong><br>
+                    <span style="font-size:12px; color:#666;">👤 ${res.user}</span><br>
+                    <span style="font-size:11px; color:#999;">📅 ${res.start} ~ ${res.end}</span>
+                </li>`;
+            }
         });
+
         document.getElementById('activeList').innerHTML = activeHtml || "目前尚無使用中設備";
         document.getElementById('upcomingList').innerHTML = upcomingHtml || "暫無預約紀錄";
         renderHistory();
     }
 
     function renderHistory() {
+        const historyList = document.getElementById('historyList');
+        if (historyData.length === 0) {
+            historyList.innerHTML = "暫無結束紀錄";
+            return;
+        }
         let html = '<ul style="padding-left:0; list-style:none;">';
         historyData.slice().reverse().slice(0, 5).forEach(item => {
-            html += `<li style="border-bottom: 1px solid #eee; padding: 5px 0;"><strong>${item.deviceName}</strong><br><small>${item.user} - 🏁 ${item.finishTime}</small></li>`;
+            html += `<li style="margin-bottom:10px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                <strong>${item.deviceName}</strong><br>
+                <span style="font-size:12px; color:#666;">👤 ${item.user}</span><br>
+                <span style="font-size:11px; color:#aaa;">🏁 結束於 ${item.finishTime}</span>
+            </li>`;
         });
-        document.getElementById('historyList').innerHTML = historyData.length ? html + '</ul>' : "暫無結束紀錄";
+        historyList.innerHTML = html + '</ul>';
     }
-
-    function openReturnModal(idx) {
-        const res = allReservations[idx]; editingIndex = idx;
-        modalContainer.innerHTML = `<h3 style="color:#ff4d4f;">歸還確認</h3><div style="background:#f9f9f9; padding:10px; border-radius:5px;"><p>設備：${res.deviceName}<br>負責人：${res.user}<br>期間：${res.start}~${res.end}</p></div><div style="margin-top:15px; display:flex; gap:10px;"><button onclick="closeModal()" style="flex:1; padding:10px;">取消</button> <button onclick="confirmReturn()" style="flex:1; background:#ff4d4f; color:white; border:none; border-radius:4px;">立即歸還</button></div>`;
-        modal.style.display = 'flex';
-    }
-
-    function openBookingModal(deviceName, editIdx = -1) {
-        currentDevName = deviceName; editingIndex = editIdx;
-        const res = editIdx > -1 ? allReservations[editIdx] : null;
-        modalContainer.innerHTML = `<h3>${deviceName}</h3><label>類別：</label><select id="usageType" onchange="toggleProjectField()"><option value="借用" ${res?.type==='借用'?'selected':''}>借用</option><option value="保養" ${res?.type==='保養'?'selected':''}>保養</option><option value="維修" ${res?.type==='維修'?'selected':''}>維修</option></select><br><label>負責人：</label><input type="text" id="userName" value="${res?.user||''}"><br><div id="projectDiv"><label>專案：</label><input type="text" id="projectName" value="${res?.project||''}"></div><br><label>期間：</label><div style="display:flex; align-items:center; gap:5px;"><input type="date" id="startDate" value="${res?.start||getTodayStr()}"> ~ <input type="date" id="endDate" value="${res?.end||''}"></div><br><div style="display:flex; gap:10px;"><button onclick="closeModal()" style="flex:1; padding:10px;">取消</button> <button onclick="submitBooking()" style="flex:1; background:#52c41a; color:white; border:none; border-radius:4px;">儲存</button></div>`;
-        modal.style.display = 'flex';
-        toggleProjectField(); // 初始化時呼叫，確保專案欄位狀態正確
-    }
-    
-    function closeModal() { modal.style.display = 'none'; }
-    
-    document.querySelectorAll('.device').forEach(dev => dev.addEventListener('click', function() {
-        const name = this.querySelector('.info-box b').innerText;
-        const idx = allReservations.findIndex(r => r.deviceName === name && r.start <= getTodayStr() && r.end >= getTodayStr());
-        if (idx > -1) openReturnModal(idx); else openBookingModal(name);
-    }));
 </script>
 </body>
 </html>
