@@ -112,7 +112,6 @@
         return new Date().toISOString().split('T')[0];
     }
 
-    // 格式化日期，解決時區與掉資料問題
     function formatDate(dateStr) {
         if (!dateStr) return "";
         const d = new Date(dateStr);
@@ -128,13 +127,13 @@
     async function fetchDataFromCloud() {
         try {
             document.body.style.cursor = 'wait';
-            // 加入時間戳防止快取
+            // 加入時間戳防止瀏覽器快取
             const response = await fetch(GAS_URL + "?t=" + new Date().getTime());
             if (!response.ok) throw new Error("HTTP error " + response.status);
             
             const result = await response.json();
             
-            // 抓取 Sheet1 (預約資料)
+            // 抓取預約資料
             if (result.reservations) {
                 allReservations = result.reservations.map(item => ({
                     deviceName: item["設備名稱"],
@@ -146,7 +145,7 @@
                 }));
             }
 
-            // 抓取 History (歷史資料) - 解決重新整理後歷史消失問題
+            // 抓取歷史資料 - 這是解決重新整理後歷史消失的關鍵
             if (result.history) {
                 historyData = result.history.map(item => ({
                     deviceName: item["設備名稱"],
@@ -158,7 +157,7 @@
             document.body.style.cursor = 'default';
         } catch (error) {
             console.error("Fetch error:", error);
-            alert("雲端連線失敗，請檢查網路連線。");
+            alert("雲端載入失敗，請確認網路連線。");
             document.body.style.cursor = 'default';
         }
     }
@@ -197,6 +196,7 @@
 
     async function confirmReturn() {
         const res = allReservations[editingIndex];
+        const now = new Date();
         const historyItem = {
             deviceName: res.deviceName,
             type: res.type,
@@ -204,13 +204,13 @@
             project: res.project,
             start: res.start,
             end: res.end,
-            finishTime: new Date().getHours() + ":" + String(new Date().getMinutes()).padStart(2, '0')
+            finishTime: (now.getMonth()+1) + "/" + now.getDate() + " " + now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0')
         };
 
         allReservations.splice(editingIndex, 1);
-        await syncToCloud("歸還成功~~", historyItem);
+        await syncToCloud("歸還成功！設備已釋放並存入紀錄。", historyItem);
         closeModal();
-        await fetchDataFromCloud(); // 重新整理資料
+        await fetchDataFromCloud(); 
         updateBanners();
     }
 
@@ -249,7 +249,7 @@
             </div>
         `;
         renderModalResList();
-        toggleProjectField(); // 初始呼叫，隱藏不必要的欄位
+        toggleProjectField(); 
         modal.style.display = 'flex';
     }
 
@@ -279,27 +279,28 @@
     function closeModal() { modal.style.display = 'none'; }
 
     async function syncToCloud(msg, historyItem = null) {
-    document.body.style.cursor = 'wait';
-    try {
-        const payload = { allData: allReservations };
-        if (historyItem) payload.historyItem = historyItem;
+        document.body.style.cursor = 'wait';
+        try {
+            const payload = { allData: allReservations };
+            if (historyItem) payload.historyItem = historyItem;
 
-        await fetch(GAS_URL, {
-            method: "POST",
-            // 這裡不要加 mode: 'no-cors'，因為我們需要確認是否成功
-            // 但確保 body 的 JSON 字串正確
-            body: JSON.stringify(payload)
-        });
-        
-        // 彈出成功訊息
-        alert(msg);
-    } catch (error) { 
-        console.error("同步失敗原因:", error);
-        alert("同步失敗，這通常是 Google 權限問題。請確認 GAS 部署為『任何人』。"); 
-    } finally { 
-        document.body.style.cursor = 'default'; 
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                alert(msg);
+            } else {
+                throw new Error("Sync failed");
+            }
+        } catch (error) { 
+            console.error("Sync error:", error);
+            alert("同步發生問題，請重新整理網頁檢查。"); 
+        } finally {
+            document.body.style.cursor = 'default';
+        }
     }
-}
 
     async function submitBooking() {
         const type = document.getElementById('usageType').value;
@@ -326,7 +327,7 @@
             
             await syncToCloud("預約成功！");
             closeModal();
-            await fetchDataFromCloud(); // 重新讀取雲端，確保同步
+            await fetchDataFromCloud(); 
             updateBanners();
         } else { alert('請填寫完整內容'); }
     }
@@ -357,26 +358,21 @@
         const typeClasses = { "借用": "status-busy", "保養": "status-maintenance", "維修": "status-repair" };
 
         allReservations.forEach((res, index) => {
+            const tagColor = typeColors[res.type] || "#1890ff";
+            const itemHtml = `<li style="margin-bottom:10px; border-bottom: 1px solid #eee; padding-bottom: 5px; cursor: pointer;" onclick="${res.start <= today && res.end >= today ? `openReturnModal(${index})` : `openBookingModal('${res.deviceName}', ${index})`}">
+                <span style="background:${tagColor}; color:white; padding:2px 5px; border-radius:3px; font-size:10px; margin-right:5px;">${res.type}</span>
+                <strong>${res.deviceName}</strong><br><span style="font-size:12px; color:#666;">👤 ${res.user}</span><br><span style="font-size:11px; color:#999;">📅 ${res.start} ~ ${res.end}</span>
+            </li>`;
+
             if (res.start <= today && res.end >= today) {
-                activeHtml += `<li onclick="openReturnModal(${index})" style="margin-bottom:10px; border-bottom: 1px solid #eee; padding-bottom: 5px; cursor: pointer;">
-                    <span style="background:${typeColors[res.type]}; color:white; padding:2px 5px; border-radius:3px; font-size:10px; margin-right:5px;">${res.type}</span>
-                    <strong>${res.deviceName}</strong> <span style="color:#ff4d4f; font-size:11px;">[點擊歸還]</span><br>
-                    <span style="font-size:12px; color:#666;">👤 ${res.user}</span><br>
-                    <span style="font-size:11px; color:#999;">📅 ${res.start} ~ ${res.end}</span>
-                </li>`;
+                activeHtml += itemHtml;
                 const devNode = Array.from(document.querySelectorAll('.device')).find(d => d.querySelector('.info-box b').innerText === res.deviceName);
                 if (devNode) {
                     devNode.className = `device ${typeClasses[res.type]}`;
                     devNode.querySelector('.info-box').innerHTML = `<b>${res.deviceName}</b><br>類別：${res.type}<br>人員：${res.user}<br>期間：${res.start}~${res.end}`;
                 }
             } else if (res.start > today) {
-                const tagColor = typeColors[res.type] || "#1890ff";
-                upcomingHtml += `<li onclick="openBookingModal('${res.deviceName}', ${index})" style="margin-bottom:10px; border-bottom: 1px solid #eee; padding-bottom: 5px; cursor: pointer;">
-                    <span style="background:${tagColor}; color:white; padding:2px 5px; border-radius:3px; font-size:10px; margin-right:5px;">${res.type}</span>
-                    <strong>${res.deviceName}</strong><br>
-                    <span style="font-size:12px; color:#666;">👤 ${res.user}</span><br>
-                    <span style="font-size:11px; color:#999;">📅 ${res.start} ~ ${res.end}</span>
-                </li>`;
+                upcomingHtml += itemHtml;
             }
         });
 
@@ -391,13 +387,11 @@
             historyList.innerHTML = "今日暫無結束紀錄";
             return;
         }
-        let html = '<ul style="padding-left:0; list-style:none;">';
-        // 顯示最後 5 筆紀錄並倒序排列
+        let html = '<ul style="padding-left:0; list-style:none; margin:0;">';
         historyData.slice(-5).reverse().forEach(item => {
-            html += `<li style="margin-bottom:10px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
-                <strong>${item.deviceName}</strong><br>
-                <span style="font-size:12px; color:#666;">👤 ${item.user}</span><br>
-                <span style="font-size:11px; color:#aaa;">🏁 結束於 ${item.finishTime}</span>
+            html += `<li style="border-bottom: 1px solid #eee; padding: 8px 0; display:flex; justify-content:space-between; align-items:center;">
+                <div><strong>${item.deviceName}</strong><br><small style="color:#888;">👤 ${item.user}</small></div>
+                <div style="color:#52c41a; font-weight:bold; font-size:12px;">✅ ${item.finishTime}</div>
             </li>`;
         });
         historyList.innerHTML = html + '</ul>';
