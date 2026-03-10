@@ -99,7 +99,6 @@
     </div>
 
 <script>
-    // 請務必確認此網址結尾是 /exec
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwRd6oDy12oJsQHigqykpn1g1QFbBllXQP77PL--vkSOkwC5zGXAZxsjHUm9ub7mqcL/exec";
 
     let currentDevName = ""; 
@@ -113,6 +112,14 @@
         return new Date().toISOString().split('T')[0];
     }
 
+    // 格式化日期，解決時區與掉資料問題
+    function formatDate(dateStr) {
+        if (!dateStr) return "";
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
     window.onload = async function() {
         await fetchDataFromCloud();
         updateBanners();
@@ -121,31 +128,39 @@
     async function fetchDataFromCloud() {
         try {
             document.body.style.cursor = 'wait';
-            // 使用 GET 抓取資料
-            const response = await fetch(GAS_URL);
+            // 加入時間戳防止快取
+            const response = await fetch(GAS_URL + "?t=" + new Date().getTime());
             if (!response.ok) throw new Error("HTTP error " + response.status);
             
-            const data = await response.json();
-            allReservations = data.map(item => ({
-                deviceName: item["設備名稱"],
-                type: item["使用類別"],
-                user: item["負責人"],
-                project: item["專案名稱"],
-                start: formatDate(item["開始日期"]),
-                end: formatDate(item["結束日期"])
-            }));
+            const result = await response.json();
+            
+            // 抓取 Sheet1 (預約資料)
+            if (result.reservations) {
+                allReservations = result.reservations.map(item => ({
+                    deviceName: item["設備名稱"],
+                    type: item["使用類別"],
+                    user: item["負責人"],
+                    project: item["專案名稱"],
+                    start: formatDate(item["開始日期"]),
+                    end: formatDate(item["結束日期"])
+                }));
+            }
+
+            // 抓取 History (歷史資料) - 解決重新整理後歷史消失問題
+            if (result.history) {
+                historyData = result.history.map(item => ({
+                    deviceName: item["設備名稱"],
+                    user: item["負責人"],
+                    finishTime: item["歸還時間"] || formatDate(item["結束日期"])
+                }));
+            }
+            
             document.body.style.cursor = 'default';
         } catch (error) {
             console.error("Fetch error:", error);
-            alert("雲端連線失敗，請確認 GAS 部署為『任何人』且權限已開啟。");
+            alert("雲端連線失敗，請檢查網路連線。");
             document.body.style.cursor = 'default';
         }
-    }
-
-    function formatDate(dateStr) {
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return dateStr;
-        return d.toISOString().split('T')[0];
     }
 
     document.querySelectorAll('.device').forEach(dev => {
@@ -169,7 +184,6 @@
             <h3 style="margin-top:0; color:#ff4d4f;">設備歸還確認</h3>
             <div style="background:#fff1f0; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #ffa39e;">
                 <p><b>設備：</b>${res.deviceName}</p>
-                <p><b>類別：</b>${res.type}</p>
                 <p><b>人員：</b>${res.user}</p>
                 <p><b>期間：</b>${res.start} ~ ${res.end}</p>
             </div>
@@ -183,8 +197,6 @@
 
     async function confirmReturn() {
         const res = allReservations[editingIndex];
-        const finishTime = new Date().toLocaleString();
-
         const historyItem = {
             deviceName: res.deviceName,
             type: res.type,
@@ -192,14 +204,13 @@
             project: res.project,
             start: res.start,
             end: res.end,
-            finishTime: finishTime
+            finishTime: new Date().getHours() + ":" + String(new Date().getMinutes()).padStart(2, '0')
         };
 
-        historyData.push(historyItem);
         allReservations.splice(editingIndex, 1);
-
-        await syncToCloud("歸還成功，資料已存入雲端歷史工作表。", historyItem);
+        await syncToCloud("歸還成功~~", historyItem);
         closeModal();
+        await fetchDataFromCloud(); // 重新整理資料
         updateBanners();
     }
 
@@ -222,7 +233,7 @@
             </select><br>
             <label>2. 負責人：</label><br>
             <input type="text" id="userName" value="${res?.user || ''}" style="width:100%; padding:8px; margin:5px 0 10px 0; border:1px solid #ddd; border-radius:4px;"><br>
-            <div id="projectDiv" style="display: ${res?.type === '保養' || res?.type === '維修' ? 'none' : 'block'}">
+            <div id="projectDiv">
                 <label>3. 專案名稱：</label><br>
                 <input type="text" id="projectName" value="${res?.project || ''}" style="width:100%; padding:8px; margin:5px 0 10px 0; border:1px solid #ddd; border-radius:4px;"><br>
             </div>
@@ -238,12 +249,16 @@
             </div>
         `;
         renderModalResList();
+        toggleProjectField(); // 初始呼叫，隱藏不必要的欄位
         modal.style.display = 'flex';
     }
 
     function toggleProjectField() {
         const type = document.getElementById('usageType').value;
-        document.getElementById('projectDiv').style.display = (type === "保養" || type === "維修") ? "none" : "block";
+        const projectDiv = document.getElementById('projectDiv');
+        if (projectDiv) {
+            projectDiv.style.display = (type === "保養" || type === "維修") ? "none" : "block";
+        }
     }
 
     function renderModalResList() {
@@ -269,16 +284,14 @@
             const body = { allData: allReservations };
             if (historyItem) body.historyItem = historyItem;
 
-            const response = await fetch(GAS_URL, {
+            await fetch(GAS_URL, {
                 method: "POST",
                 body: JSON.stringify(body)
             });
-            
-            // 如果 GAS 正常回傳，會顯示成功訊息
             alert(msg);
         } catch (error) { 
             console.error("Sync error:", error);
-            alert("同步失敗，請確認網路連線或 GAS 權限。"); 
+            alert("同步失敗，請確認網路連線。"); 
         }
         document.body.style.cursor = 'default';
     }
@@ -308,6 +321,7 @@
             
             await syncToCloud("預約成功！");
             closeModal();
+            await fetchDataFromCloud(); // 重新讀取雲端，確保同步
             updateBanners();
         } else { alert('請填寫完整內容'); }
     }
@@ -317,6 +331,7 @@
             allReservations.splice(editingIndex, 1);
             await syncToCloud("刪除成功");
             closeModal();
+            await fetchDataFromCloud();
             updateBanners();
         }
     }
@@ -368,11 +383,12 @@
     function renderHistory() {
         const historyList = document.getElementById('historyList');
         if (historyData.length === 0) {
-            historyList.innerHTML = "暫無結束紀錄";
+            historyList.innerHTML = "今日暫無結束紀錄";
             return;
         }
         let html = '<ul style="padding-left:0; list-style:none;">';
-        historyData.slice().reverse().slice(0, 5).forEach(item => {
+        // 顯示最後 5 筆紀錄並倒序排列
+        historyData.slice(-5).reverse().forEach(item => {
             html += `<li style="margin-bottom:10px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
                 <strong>${item.deviceName}</strong><br>
                 <span style="font-size:12px; color:#666;">👤 ${item.user}</span><br>
