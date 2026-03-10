@@ -87,7 +87,7 @@
                 <div id="upcomingList" style="font-size: 14px; color: #555;">暫無預約紀錄</div>
             </div>
             <div style="background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 20px; border-top: 5px solid #8c8c8c; margin-top: 20px;">
-               <h3 style="margin-top:0; color: #8c8c8c;">✅ 已使用完</h3>
+               <h3 style="margin-top:0; color: #8c8c8c;">✅ 已使用完 (本日紀錄)</h3>
                <div id="historyList" style="font-size: 14px; color: #555; line-height: 1.6;">暫無結束紀錄</div>
             </div>
         </div>
@@ -133,6 +133,7 @@
             document.body.style.cursor = 'default';
         } catch (error) {
             alert("雲端連線失敗");
+            document.body.style.cursor = 'default';
         }
     }
 
@@ -175,15 +176,30 @@
         modal.style.display = 'flex';
     }
 
+    // --- 核心修正：歸還並存入歷史工作表 ---
     async function confirmReturn() {
         const res = allReservations[editingIndex];
-        historyData.push({
+        const finishTime = new Date().toLocaleString();
+
+        const historyItem = {
             deviceName: res.deviceName,
+            type: res.type,
             user: res.user,
-            finishTime: new Date().toLocaleString()
-        });
+            project: res.project,
+            start: res.start,
+            end: res.end,
+            finishTime: finishTime
+        };
+
+        // 存入本地顯示陣列
+        historyData.push(historyItem);
+
+        // 從預約清單移除
         allReservations.splice(editingIndex, 1);
-        await syncToCloud("歸還成功，設備已釋放");
+
+        // 同步至雲端 (傳送目前的清單 + 歷史單筆資料)
+        await syncToCloud("歸還成功，資料已存入雲端歷史工作表。", historyItem);
+        
         closeModal();
         updateBanners();
     }
@@ -248,12 +264,16 @@
 
     function closeModal() { modal.style.display = 'none'; }
 
-    async function syncToCloud(msg) {
+    // --- 同步功能優化：可接收 historyItem ---
+    async function syncToCloud(msg, historyItem = null) {
         document.body.style.cursor = 'wait';
         try {
+            const body = { allData: allReservations };
+            if (historyItem) body.historyItem = historyItem;
+
             await fetch(GAS_URL, {
                 method: "POST",
-                body: JSON.stringify({ allData: allReservations })
+                body: JSON.stringify(body)
             });
             alert(msg);
         } catch (error) { alert("同步失敗"); }
@@ -268,21 +288,15 @@
         const end = document.getElementById('endDate').value;
 
         if (user && start && end) {
-            // --- 重疊檢查邏輯 ---
             const hasOverlap = allReservations.some((res, index) => {
-                // 如果是編輯模式，要排除掉自己跟自己比對
                 if (editingIndex === index) return false;
-                
-                // 必須是同一台設備才比對
                 if (res.deviceName !== currentDevName) return false;
-
-                // 日期邏輯比對 (只要有一天重疊就算衝突)
                 return (start <= res.end && end >= res.start);
             });
 
             if (hasOverlap) {
-                alert("❌ 預約失敗：該時段設備已有其他預約，請重新選擇日期。");
-                return; // 中斷儲存
+                alert("❌ 預約失敗：該時段設備已有其他預約。");
+                return;
             }
 
             const newRes = { deviceName: currentDevName, user, project: project || "N/A", start, end, type };
@@ -292,7 +306,7 @@
             await syncToCloud("預約成功！");
             closeModal();
             updateBanners();
-        } else { alert('請填寫完整'); }
+        } else { alert('請填寫完整內容'); }
     }
 
     async function deleteCurrentEdit() {
