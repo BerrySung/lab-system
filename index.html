@@ -88,7 +88,7 @@
             </div>
             <div style="background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 20px; border-top: 5px solid #8c8c8c; margin-top: 20px;">
                <h3 style="margin-top:0; color: #8c8c8c;">✅ 已使用完 (本日紀錄)</h3>
-               <div id="historyList" style="font-size: 14px; color: #555; line-height: 1.6;">暫無結束紀錄</div>
+               <div id="historyList" style="font-size: 14px; color: #555; line-height: 1.6;">今日暫無結束紀錄</div>
             </div>
         </div>
     </div>
@@ -108,7 +108,6 @@
     const modal = document.getElementById('bookingModal');
     const modalContainer = document.getElementById('modalContainer');
 
-    // 🌟 修正1：取得本地(台灣)時區的今天日期 (YYYY-MM-DD)
     function getTodayStr() {
         const d = new Date();
         const year = d.getFullYear();
@@ -117,15 +116,31 @@
         return `${year}-${month}-${day}`;
     }
 
-    // 🌟 修正2：將雲端傳來的日期字串，精準轉為本地(台灣)的 YYYY-MM-DD
     function formatDate(dateStr) {
         if (!dateStr) return "";
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return dateStr;
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    // 🌟 新增：過濾並格式化歷史紀錄時間的專用函式
+    function extractTodayTime(rawTime) {
+        if (!rawTime) return null; // 沒有時間則略過
+        
+        const d = new Date(rawTime);
+        if (isNaN(d.getTime())) return null; // 格式不符則略過
+
+        const now = new Date();
+        // 檢查是否為「今天」
+        const isToday = d.getFullYear() === now.getFullYear() && 
+                        d.getMonth() === now.getMonth() && 
+                        d.getDate() === now.getDate();
+
+        // 如果是今天，就回傳 HH:mm 格式，否則回傳 null
+        if (isToday) {
+            return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+        return null;
     }
 
     window.onload = async function() {
@@ -141,6 +156,7 @@
             
             const result = await response.json();
             
+            // 抓取預約資料
             if (result.reservations) {
                 allReservations = result.reservations.map(item => ({
                     deviceName: item["設備名稱"],
@@ -152,12 +168,19 @@
                 }));
             }
 
+            // 🌟 修改：只抓取「今天」的歷史紀錄，並美化時間
             if (result.history) {
-                historyData = result.history.map(item => ({
-                    deviceName: item["設備名稱"],
-                    user: item["負責人"],
-                    finishTime: item["歸還時間"] || formatDate(item["結束日期"])
-                }));
+                historyData = [];
+                result.history.forEach(item => {
+                    const timeToday = extractTodayTime(item["歸還時間"]);
+                    if (timeToday) {
+                        historyData.push({
+                            deviceName: item["設備名稱"],
+                            user: item["負責人"],
+                            finishTime: timeToday // 這裡會變成乾淨的 16:20
+                        });
+                    }
+                });
             }
             
             document.body.style.cursor = 'default';
@@ -204,12 +227,14 @@
         const res = allReservations[editingIndex];
         const now = new Date();
         
-        // 🌟 修正3：時間格式補零 (例如 3/5 09:05)，看起來更專業
+        const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
         const hours = String(now.getHours()).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
         
+        // 🌟 確保送出完整的標準時間格式，方便 Google Sheets 判讀
         const historyItem = {
             deviceName: res.deviceName,
             type: res.type,
@@ -217,7 +242,7 @@
             project: res.project,
             start: res.start,
             end: res.end,
-            finishTime: `${month}/${day} ${hours}:${minutes}`
+            finishTime: `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
         };
 
         allReservations.splice(editingIndex, 1);
