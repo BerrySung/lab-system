@@ -108,15 +108,24 @@
     const modal = document.getElementById('bookingModal');
     const modalContainer = document.getElementById('modalContainer');
 
+    // 🌟 修正1：取得本地(台灣)時區的今天日期 (YYYY-MM-DD)
     function getTodayStr() {
-        return new Date().toISOString().split('T')[0];
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
+    // 🌟 修正2：將雲端傳來的日期字串，精準轉為本地(台灣)的 YYYY-MM-DD
     function formatDate(dateStr) {
         if (!dateStr) return "";
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return dateStr;
-        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     window.onload = async function() {
@@ -127,13 +136,11 @@
     async function fetchDataFromCloud() {
         try {
             document.body.style.cursor = 'wait';
-            // 加入時間戳防止瀏覽器快取
             const response = await fetch(GAS_URL + "?t=" + new Date().getTime());
             if (!response.ok) throw new Error("HTTP error " + response.status);
             
             const result = await response.json();
             
-            // 抓取預約資料
             if (result.reservations) {
                 allReservations = result.reservations.map(item => ({
                     deviceName: item["設備名稱"],
@@ -145,7 +152,6 @@
                 }));
             }
 
-            // 抓取歷史資料 - 這是解決重新整理後歷史消失的關鍵
             if (result.history) {
                 historyData = result.history.map(item => ({
                     deviceName: item["設備名稱"],
@@ -197,6 +203,13 @@
     async function confirmReturn() {
         const res = allReservations[editingIndex];
         const now = new Date();
+        
+        // 🌟 修正3：時間格式補零 (例如 3/5 09:05)，看起來更專業
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        
         const historyItem = {
             deviceName: res.deviceName,
             type: res.type,
@@ -204,7 +217,7 @@
             project: res.project,
             start: res.start,
             end: res.end,
-            finishTime: (now.getMonth()+1) + "/" + now.getDate() + " " + now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0')
+            finishTime: `${month}/${day} ${hours}:${minutes}`
         };
 
         allReservations.splice(editingIndex, 1);
@@ -292,11 +305,11 @@
             if (response.ok) {
                 alert(msg);
             } else {
-                throw new Error("Sync failed");
+                throw new Error("HTTP 狀態碼異常：" + response.status);
             }
         } catch (error) { 
             console.error("Sync error:", error);
-            alert("同步發生問題，請重新整理網頁檢查。"); 
+            alert("同步可能發生問題，請手動重新整理網頁確認資料狀態。"); 
         } finally {
             document.body.style.cursor = 'default';
         }
